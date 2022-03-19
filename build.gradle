@@ -1,0 +1,51 @@
+plugins {
+    id 'org.jetbrains.intellij' version '1.3.1'
+    id 'org.jetbrains.kotlin.jvm' version '1.4.32'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
+    gradlePluginPortal()
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+//    compile group: 'org.easytesting', name: 'fest-reflect', version: '1.4.1'
+//    compileOnly fileTree(dir: "lib", include: ['*.jar'])
+//    compileOnly fileTree(dir: "$AndroidStudioPath/plugins/android/lib", include: ['*.jar'])
+//    compileOnly fileTree(dir: "$AndroidStudioPath/lib", include: ['*.jar'])
+//    compileOnly fileTree(dir: "$AndroidStudioPath/gradle/m2repository/com/android/tools/sdklib/25.2.0-alpha5/sdklib-25.2.0-alpha5.jar")
+}
+
+// See https://github.com/JetBrains/gradle-intellij-plugin/
+intellij {
+    // Define IntelliJ Platform against which to build the plugin project.
+    version = '211.7628.21'  // Same IntelliJ IDEA version (2019.1.4) as target 3.5 Android Studio
+    type = 'IC'              // Use IntelliJ IDEA CE because it's the basis of the IntelliJ Platform
+    // Require the Android plugin, Gradle will match the plugin version to intellij.version
+    plugins = ['android']
+}
+
+runIde {
+    // Absolute path to installed target 3.5 Android Studio to use as IDE Development Instance
+    // The "Contents" directory is macOS specific.
+    ideDir = file('/home/sergey/Загрузки/android-studio/')
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+patchPluginXml {
+    changeNotes = """
+      Add change notes here.<br>
+      <em>most HTML tags may be used</em>"""
+}
