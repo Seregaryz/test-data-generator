@@ -54,5 +54,14 @@
             <reference ref="SecondAction"/>
         </group>
 
+        <action
+                class="com.github.seregaryz.testdatagenerator.action.data_analyze.DataAnalyzeAction"
+                id="AnalyzeAction"
+                icon="SdkIcons.Sdk_default_icon"
+                text="Analyze Data"
+                description="Analyze package and generate test data">
+            <add-to-group group-id="AnalyzeActions" anchor="first"/>
+        </action>
+
     </actions>
 </idea-plugin>
