@@ -1,5 +1,5 @@
-package org.example.data_generator.actions.data_analyze.presenter
+package com.github.seregaryz.testdatagenerator.action.data_analyze.presenter
 
 interface DataAnalyzePresenter {
-    fun analyzeData()
+    fun sendParsedData(jsonData: String, method: String)
 }

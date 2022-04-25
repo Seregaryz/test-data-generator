@@ -16,6 +16,23 @@ repositories {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation "com.google.code.gson:gson:2.8.5"
+
+    //    retrofit
+    //noinspection GradleDependency
+    implementation 'com.squareup.retrofit2:retrofit:2.6.4'
+    //noinspection GradleDependency
+    implementation 'com.squareup.retrofit2:converter-gson:2.6.4'
+    //noinspection GradleDependency
+    implementation 'com.squareup.okhttp3:okhttp:3.12.12'
+    //noinspection GradleDependency
+    implementation 'com.squareup.okhttp3:logging-interceptor:3.12.12'
+    //noinspection GradleDependency
+    implementation 'com.squareup.retrofit2:adapter-rxjava2:2.6.4'
+
+    //    rx
+    implementation "io.reactivex.rxjava3:rxjava:3.0.4"
+
 //    compile group: 'org.easytesting', name: 'fest-reflect', version: '1.4.1'
 //    compileOnly fileTree(dir: "lib", include: ['*.jar'])
 //    compileOnly fileTree(dir: "$AndroidStudioPath/plugins/android/lib", include: ['*.jar'])

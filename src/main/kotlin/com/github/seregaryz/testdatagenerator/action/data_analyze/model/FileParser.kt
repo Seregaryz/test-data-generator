@@ -16,18 +16,22 @@ data class FileParser (val myProject: Project) {
         return result.toList()
     }
 
-    private tailrec fun getKotlinDbClassesInPsiDir(aResult: MutableList<PsiFile>, aPsiDirectoryList: List<PsiDirectory?>) {
+    private tailrec fun getKotlinDbClassesInPsiDir(
+        aResult: MutableList<PsiFile>,
+        aPsiDirectoryList: List<PsiDirectory?>
+    ) {
         if (aPsiDirectoryList.isEmpty()) return
 
         val subDirectories = mutableListOf<PsiDirectory>()
-        aPsiDirectoryList.filter { it != null }.forEach {
-            val children = it!!.children
+        aPsiDirectoryList.filterNotNull().forEach { psiDirectory ->
+            val children = psiDirectory.children
             val files = children.filter {
                 it is PsiFile && it.language.toString().toLowerCase() == "language: kotlin"
             }.map { it as PsiFile }
-            subDirectories += children.filter { it is PsiDirectory }.map { it as PsiDirectory }
+            subDirectories += children.filterIsInstance<PsiDirectory>().map { it }
             aResult += files.toList()
         }
+
         getKotlinDbClassesInPsiDir(aResult, subDirectories)
     }
 }

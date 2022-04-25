@@ -1,88 +1,97 @@
 package com.github.seregaryz.testdatagenerator.action.data_analyze
 
 import com.github.seregaryz.testdatagenerator.action.data_analyze.model.FileParser
-import com.intellij.notification.NotificationDisplayType
-import com.intellij.notification.NotificationGroup
+import com.google.gson.Gson
+import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.psi.*
-import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import org.jetbrains.kotlin.asJava.namedUnwrappedElement
-import org.jetbrains.kotlin.idea.structuralsearch.visitor.KotlinRecursiveElementVisitor
-import org.jetbrains.kotlin.idea.structuralsearch.visitor.KotlinRecursiveElementWalkingVisitor
-import org.jetbrains.kotlin.nj2k.postProcessing.type
-import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtClassOrObject
-import org.jetbrains.kotlin.psi.KtElement
-import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
 import org.jetbrains.kotlin.psi.psiUtil.startOffset
-import org.jetbrains.kotlin.resolve.BindingContext
-import org.jetbrains.kotlin.resolve.calls.callUtil.getType
-
 
 class DataAnalyzeAction : AnAction() {
 
     override fun actionPerformed(event: AnActionEvent) {
         val eventProject = event.project
-        val data = eventProject?.let { PsiManager.getInstance(it) }
-        val str = data?.project?.basePath ?: "Empty"
-//        val classList = hashMapOf<String?, List<PsiElement>>()
-        val classList = hashMapOf<String?, String>()
-        // -------- Getting classes & their references
-        val objectValue = StringBuilder()
-        eventProject?.let { project ->
-            FileParser(project).getAllKotlinDbClasses().forEach { psiFile ->
-                println(psiFile.toString())
-                print("     fields")
-//                objectValue.append(psiFile.toString()).append("\n")
-//                objectValue.append("    fields: ")
-                psiFile.accept(object : PsiRecursiveElementWalkingVisitor() {
-                    override fun visitElement(element: PsiElement) {
-                        super.visitElement(element)
-                        if (element is KtClassOrObject) {
-                            objectValue.append("    $element")
-                            objectValue.append("\n")
-                            getInfo(psiFile)
+        val message = StringBuilder(event.presentation.description + " Selected!")
+
+        val selectedElement: PsiElement? = event.getData(CommonDataKeys.PSI_ELEMENT)
+        if (selectedElement != null) {
+            message.append("\nSelected Element: \n").append(selectedElement.namedUnwrappedElement?.name)
+
+            eventProject?.let { project ->
+                FileParser(project).getAllKotlinDbClasses().forEach { psiFile ->
+                    println(psiFile.toString())
+                    println("fields: ")
+                    psiFile.accept(object : PsiRecursiveElementWalkingVisitor() {
+                        override fun visitElement(element: PsiElement) {
+                            super.visitElement(element)
+                            if (element is KtClassOrObject) {
+                                getInfo(
+                                    selectedElement.namedUnwrappedElement?.name,
+                                    psiFile,
+                                    1,
+                                    null,
+                                    hashMapOf()
+                                )
+                            }
                         }
-//                            element.accept(object : KotlinRecursiveElementVisitor() {
-//                                override fun visitKtElement(element2: KtElement) {
-//                                    super.visitKtElement(element2)
-//                                    element2.getChildrenOfType<KtClass>().asList()
-//                                    if (element2.name != null) {
-//                                        objectValue.append(element2.name).append(" type: ")
-//                                        objectValue.append(element2.getChildrenOfType<KtClass>().asList().toString())
-//                                        //objectValue.append(element2.context?.node?.elementType.toString())
-//                                        objectValue.append(", \n")
-//                                    }
-//                                }
-//                            })
-                    }
-                })
+                    })
+                }
             }
+
+            val resultJson = Gson().toJson(
+                getInfo(
+                    selectedElement.namedUnwrappedElement?.name,
+                    selectedElement,
+                    1,
+                    null,
+                    hashMapOf()
+                )
+            )
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("Custom Notification Group")
+                .createNotification(
+                    resultJson, NotificationType.INFORMATION
+                ).notify(eventProject)
+
         }
-
-
-        val notificationGroup = NotificationGroup(
-            displayId = "myActionId",
-            displayType = NotificationDisplayType.BALLOON,
-            isLogByDefault = true
-        )
-        notificationGroup.createNotification(
-            title = "My title",
-            content = objectValue.toString(),
-            type = NotificationType.INFORMATION,
-            listener = null
-        ).notify(eventProject)
     }
 
-    fun getInfo(psiElement: PsiElement) {
-        //builder.append(psiElement).append("\n")
-        println("${psiElement.namedUnwrappedElement?.name} type: ${psiElement.findElementAt(psiElement.startOffset)?.text}")
-        if (psiElement.children.isNotEmpty()) {
+    fun getInfo(
+        rootElementName: String?,
+        psiElement: PsiElement,
+        epoch: Int,
+        parent: PsiElement?,
+        resultMap: HashMap<String?, MutableList<String?>>
+    ) : HashMap<String?, MutableList<String?>> {
+        val elementName = psiElement.namedUnwrappedElement?.name
+        val elementTypeInfo = psiElement.findElementAt(psiElement.startOffset)?.text
+        if (parent != null && !elementTypeInfo.equals(parent.findElementAt(psiElement.startOffset)?.text) &&
+            !elementName.equals(rootElementName)) {
+            println("$elementName type: $elementTypeInfo epoch: $epoch")
+            if (resultMap.containsKey(elementName)) {
+                val currentList = resultMap[elementName]
+                if (elementTypeInfo != "\u003e") currentList?.add(elementTypeInfo)
+                resultMap[elementName] = currentList!!
+            } else if (elementTypeInfo != "\u003e")resultMap[elementName] = mutableListOf(elementTypeInfo)
+        }
+        if (evaluateNextGenAvailable(psiElement, epoch)) {
             psiElement.children.forEach {
-                getInfo(it)
+                getInfo(rootElementName, it, epoch + 1, psiElement, resultMap)
             }
         }
+        return resultMap
+    }
+
+    private fun evaluateNextGenAvailable(psiElement: PsiElement, epoch: Int): Boolean {
+        if (psiElement.children.isEmpty()) return false
+        if (Constants.STOP_WORDS.contains(psiElement.findElementAt(psiElement.startOffset)?.text) && epoch != 1)
+            return false
+        return true
     }
 }

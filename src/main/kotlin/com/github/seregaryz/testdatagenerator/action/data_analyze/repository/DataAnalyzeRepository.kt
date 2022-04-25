@@ -1,4 +1,5 @@
-package org.example.data_generator.actions.data_analyze.repository
+package com.github.seregaryz.testdatagenerator.action.data_analyze.repository
 
 interface DataAnalyzeRepository {
+    fun sendParsedData(jsonData: String, method: String)
 }

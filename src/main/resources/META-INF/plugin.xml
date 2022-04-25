@@ -19,6 +19,8 @@
         <applicationService
                 serviceImplementation="com.github.seregaryz.testdatagenerator.services.MyApplicationService"/>
         <projectService serviceImplementation="com.github.seregaryz.testdatagenerator.services.MyProjectService"/>
+        <notificationGroup id="Custom Notification Group"
+                           displayType="BALLOON"/>
     </extensions>
 
     <applicationListeners>

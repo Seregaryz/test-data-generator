@@ -1,14 +1,12 @@
-package org.example.data_generator.actions.data_analyze.presenter
+package com.github.seregaryz.testdatagenerator.action.data_analyze.presenter
 
-import org.example.data_generator.actions.data_analyze.repository.DataAnalyzeRepository
-import org.example.data_generator.actions.data_analyze.view.DataAnalyzeSettingsView
+import com.github.seregaryz.testdatagenerator.action.data_analyze.repository.DataAnalyzeRepository
 
 class DataAnalyzePresenterImpl(
-    private val view: DataAnalyzeSettingsView,
     private val repository: DataAnalyzeRepository
 ): DataAnalyzePresenter {
 
-    override fun analyzeData() {
-
+    override fun sendParsedData(jsonData: String, method: String) {
+        repository.sendParsedData(jsonData, method)
     }
 }
