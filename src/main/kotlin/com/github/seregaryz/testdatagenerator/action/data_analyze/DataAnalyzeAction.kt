@@ -1,5 +1,7 @@
 package com.github.seregaryz.testdatagenerator.action.data_analyze
 
+import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.LISTS_TYPES
+import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.MAP_TYPES
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.PRIMITIVES
 import com.github.seregaryz.testdatagenerator.action.data_analyze.model.FileParser
 import com.google.gson.Gson
@@ -25,55 +27,25 @@ class DataAnalyzeAction : AnAction() {
         val selectedElement: PsiElement? = event.getData(CommonDataKeys.PSI_ELEMENT)
         val rootElementName = selectedElement?.namedUnwrappedElement?.name
 
-        eventProject?.let { project ->
-            FileParser(project).getAllKotlinDbClasses().forEach { psiFile ->
-                println(psiFile.namedUnwrappedElement?.name)
-                println()
-                if (psiFile.namedUnwrappedElement?.name.equals("AdditionalInfo.kt", ignoreCase = true)) {
-                    psiFile.accept(object : PsiRecursiveElementWalkingVisitor() {
-                        override fun visitElement(element: PsiElement) {
-                            super.visitElement(element)
-                            if (element is KtClassOrObject) {
-                                getInfo(rootElementName, element, 1, null, hashMapOf())
-                            }
-                        }
-                    })
-                }
-            }
-        }
-
         if (selectedElement != null) {
             message.append("\nSelected Element: \n").append(selectedElement.namedUnwrappedElement?.name)
 
             val resultMap =
                 getInfo(rootElementName, selectedElement, 1, null, hashMapOf())
-//            resultMap.keys.forEach { key ->
-//                val listOfTypes = resultMap[key]?.left
-//                val resultList = mutableListOf<String?>()
-//                listOfTypes?.forEach { type ->
-//                    resultList.add(type)
-//                    if (type != null && PRIMITIVES.contains(type)) {
-//                        resultList.add(type)
-//                    } else {
-//                        evaluateFieldType(type, eventProject, resultMap[key]?.right, rootElementName)?.let { element ->
-//                            val longMap = getInfo(rootElementName, element, 1, null, hashMapOf())
-//                            val shortMap = hashMapOf<String?, MutableList<String?>>()
-//                            longMap.forEach { (key, value) ->
-//                                shortMap[key] = value.left
-//                            }
-//                            resultList.add(
-//                                Gson().toJson(shortMap)
-//                            )
-//                        }
-//                    }
-//                }
-//                resultMap[key]?.left = resultList
-//            }
-            val preparedResultMap = hashMapOf<String?, MutableList<String?>>()
-            resultMap.forEach { (key, value) ->
-                preparedResultMap[key] = value.left
+            resultMap.keys.forEach {
+                resultMap[it]?.right = proceedType(resultMap[it]?.right)
             }
-            val resultJson = Gson().toJson(preparedResultMap)
+            val innerClasses = defineTypes(resultMap, eventProject, mutableListOf())
+            val resClasses = mutableListOf<HashMap<String?, String?>>()
+            innerClasses.forEach {
+                val resMap = hashMapOf<String?, String?>()
+                it.keys.forEach { key ->
+                    resMap[key] = proceedType(it[key]?.right)
+                }
+                resClasses.add(resMap)
+            }
+
+            val resultJson = Gson().toJson(resClasses.toSet())
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("Custom Notification Group")
                 .createNotification(
@@ -89,28 +61,34 @@ class DataAnalyzeAction : AnAction() {
         epoch: Int,
         parent: PsiElement?,
         resultMap: HashMap<String?, MutablePair<MutableList<String?>, String?>>
-    ) : HashMap<String?, MutablePair<MutableList<String?>, String?>> {
+    ): HashMap<String?, MutablePair<MutableList<String?>, String?>> {
         //name of current element
         val elementName = psiElement.namedUnwrappedElement?.name
         // part of type of current element
         val elementTypeInfo = psiElement.findElementAt(psiElement.startOffset)?.text
+        // package of element
+        val mPackage = psiElement.namedUnwrappedElement?.text
         // add in result if has parent element, parent type and current type are not equal
         // and current name is not equal root name
         if (parent != null && !elementTypeInfo.equals(parent.findElementAt(psiElement.startOffset)?.text) &&
-            !elementName.equals(rootElementName)) {
+            !elementName.equals(rootElementName)
+        ) {
             println("$elementName type: $elementTypeInfo epoch: $epoch")
             println()
-            // if map has current name key, add type in exciting type array
-            if (resultMap.containsKey(elementName)) {
+
+            if (!resultMap.containsKey(elementName) && elementTypeInfo != "\u003e") {
+                println("$elementName epoch:$epoch package:$mPackage")
+                println()
+                val splitType = mPackage?.split(":")
+                resultMap[elementName] = MutablePair(
+                    mutableListOf(elementTypeInfo),
+                    if (splitType != null && splitType.size > 1) splitType[1] else null
+                )
+
+            } else if (resultMap.containsKey(elementName)) {
                 val currentList = resultMap[elementName]?.left
                 if (elementTypeInfo != "\u003e") currentList?.add(elementTypeInfo)
                 resultMap[elementName]?.left = currentList
-                // if package info about element is empty, add info
-                if (resultMap[elementName]?.right == null)
-                    resultMap[elementName]?.right = psiElement.containingFile.virtualFile.path
-            } else if (elementTypeInfo != "\u003e") {
-                resultMap[elementName] =
-                    MutablePair(mutableListOf(elementTypeInfo), psiElement.containingFile.virtualFile.path)
             }
         }
         if (evaluateNextGenAvailable(psiElement, epoch)) {
@@ -130,23 +108,41 @@ class DataAnalyzeAction : AnAction() {
 
     private fun evaluateFieldType(
         className: String?,
-        eventProject: Project?,
-        packageName: String?,
-        rootElementName: String?
+        eventProject: Project?
     ): PsiElement? {
         var result: PsiElement? = null
         eventProject?.let { project ->
             FileParser(project).getAllKotlinDbClasses().forEach { psiFile ->
+                println(psiFile.namedUnwrappedElement?.name)
+                println()
                 if (psiFile.namedUnwrappedElement?.name.equals("$className.kt", ignoreCase = true)) {
-                    if (psiFile.namedUnwrappedElement?.name.equals("AdditionalInfo.kt", ignoreCase = true)) {
-                        psiFile.accept(object : PsiRecursiveElementWalkingVisitor() {
-                            override fun visitElement(element: PsiElement) {
-                                super.visitElement(element)
-                                if (element is KtClassOrObject) {
-                                    getInfo(rootElementName, element, 1, null, hashMapOf())
-                                }
+                    psiFile.accept(object : PsiRecursiveElementWalkingVisitor() {
+                        override fun visitElement(element: PsiElement) {
+                            super.visitElement(element)
+                            if (element is KtClassOrObject) {
+                                result = element
+                                return
                             }
-                        })
+                        }
+                    })
+                }
+            }
+        }
+        return result
+    }
+
+    private fun defineTypes(
+        sourceMap: HashMap<String?, MutablePair<MutableList<String?>, String?>>,
+        eventProject: Project?,
+        result: MutableList<HashMap<String?, MutablePair<MutableList<String?>, String?>>>
+    ): List<HashMap<String?, MutablePair<MutableList<String?>, String?>>> {
+        sourceMap.keys.forEach { key ->
+            sourceMap[key]?.left?.forEach {
+                if (!PRIMITIVES.contains(it) && !LISTS_TYPES.contains(it) && !MAP_TYPES.contains(it)) {
+                    evaluateFieldType(it, eventProject)?.let { element ->
+                        val map = getInfo(it, element, 1, null, hashMapOf())
+                        result.add(map)
+                        defineTypes(map, eventProject, result)
                     }
                 }
             }
@@ -154,32 +150,22 @@ class DataAnalyzeAction : AnAction() {
         return result
     }
 
-//    private fun evaluateTypes(
-//        sourceMap: HashMap<String?, MutablePair<MutableList<String?>, String?>>,
-//        eventProject: Project?
-//    ): HashMap<String?, MutablePair<MutableList<String?>, String?>> {
-//        sourceMap.keys.forEach { key ->
-//            val listOfTypes = sourceMap[key]?.left
-//            val resultList = mutableListOf<String?>()
-//            listOfTypes?.forEach { type ->
-//                resultList.add(type)
-//                if (type != null && PRIMITIVES.contains(type)) {
-//                    resultList.add(type)
-//                } else {
-//                    evaluateFieldType(type, eventProject, sourceMap[key]?.right)?.let { element ->
-//                        val longMap = getInfo(rootElementName, element, 1, null, hashMapOf())
-//                        val shortMap = hashMapOf<String?, MutableList<String?>>()
-//                        longMap.forEach { (key, value) ->
-//                            shortMap[key] = value.left
-//                        }
-//                        resultList.add(
-//                            Gson().toJson(shortMap)
-//                        )
-//                    }
-//                }
-//            }
-//            sourceMap[key]?.left = resultList
-//        }
-//    }
+    private fun proceedType(type: String?): String? {
+        var result = type
+        result = result?.replace(" ", "")
+        result = result?.replace("<", "[")
+        result = result?.replace(">", "]")
+        LISTS_TYPES.forEach {
+            if (type?.contains(it, ignoreCase = false) == true) {
+                result = result?.replace(it, "")
+            }
+        }
+        MAP_TYPES.forEach {
+            if (type?.contains(it, ignoreCase = false) == true) {
+                result = result?.replace(it, "")
+            }
+        }
+        return result
+    }
 
 }
