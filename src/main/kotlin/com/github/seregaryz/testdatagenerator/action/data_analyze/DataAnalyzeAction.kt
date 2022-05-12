@@ -3,6 +3,7 @@ package com.github.seregaryz.testdatagenerator.action.data_analyze
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.LISTS_TYPES
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.MAP_TYPES
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.PRIMITIVES
+import com.github.seregaryz.testdatagenerator.action.data_analyze.gui.DataAnalyzeForm
 import com.github.seregaryz.testdatagenerator.action.data_analyze.model.FileParser
 import com.google.gson.Gson
 import com.intellij.notification.NotificationGroupManager
@@ -22,6 +23,8 @@ class DataAnalyzeAction : AnAction() {
 
     override fun actionPerformed(event: AnActionEvent) {
         val eventProject = event.project
+        val dialog = eventProject?.let { DataAnalyzeForm(it, DataAnalyzeInjectorImpl()) }
+        dialog?.show()
         val message = StringBuilder(event.presentation.description + " Selected!")
         // get element that was selected by user
         val selectedElement: PsiElement? = event.getData(CommonDataKeys.PSI_ELEMENT)
@@ -106,7 +109,7 @@ class DataAnalyzeAction : AnAction() {
         return true
     }
 
-    private fun evaluateFieldType(
+    private fun findFieldClass(
         className: String?,
         eventProject: Project?
     ): PsiElement? {
@@ -139,7 +142,7 @@ class DataAnalyzeAction : AnAction() {
         sourceMap.keys.forEach { key ->
             sourceMap[key]?.left?.forEach {
                 if (!PRIMITIVES.contains(it) && !LISTS_TYPES.contains(it) && !MAP_TYPES.contains(it)) {
-                    evaluateFieldType(it, eventProject)?.let { element ->
+                    findFieldClass(it, eventProject)?.let { element ->
                         val map = getInfo(it, element, 1, null, hashMapOf())
                         result.add(map)
                         defineTypes(map, eventProject, result)
