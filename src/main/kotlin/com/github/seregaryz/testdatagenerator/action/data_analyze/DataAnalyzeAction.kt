@@ -3,11 +3,10 @@ package com.github.seregaryz.testdatagenerator.action.data_analyze
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.LISTS_TYPES
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.MAP_TYPES
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.PRIMITIVES
-import com.github.seregaryz.testdatagenerator.action.data_analyze.gui.DataAnalyzeForm
+import com.github.seregaryz.testdatagenerator.action.data_analyze.injector.DataAnalyzeInjectorImpl
+import com.github.seregaryz.testdatagenerator.action.data_analyze.view.DataAnalyzeForm
 import com.github.seregaryz.testdatagenerator.action.data_analyze.model.FileParser
 import com.google.gson.Gson
-import com.intellij.notification.NotificationGroupManager
-import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
@@ -23,8 +22,6 @@ class DataAnalyzeAction : AnAction() {
 
     override fun actionPerformed(event: AnActionEvent) {
         val eventProject = event.project
-        val dialog = eventProject?.let { DataAnalyzeForm(it, DataAnalyzeInjectorImpl()) }
-        dialog?.show()
         val message = StringBuilder(event.presentation.description + " Selected!")
         // get element that was selected by user
         val selectedElement: PsiElement? = event.getData(CommonDataKeys.PSI_ELEMENT)
@@ -35,9 +32,15 @@ class DataAnalyzeAction : AnAction() {
 
             val resultMap =
                 getInfo(rootElementName, selectedElement, 1, null, hashMapOf())
+            val modelMap = hashMapOf<String?, String?>()
             resultMap.keys.forEach {
                 resultMap[it]?.right = proceedType(resultMap[it]?.right)
+                modelMap[it] = resultMap[it]?.right
             }
+
+            //Result for original selected element
+            val modelJsonData = Gson().toJson(modelMap)
+
             val innerClasses = defineTypes(resultMap, eventProject, mutableListOf())
             val resClasses = mutableListOf<HashMap<String?, String?>>()
             innerClasses.forEach {
@@ -48,12 +51,23 @@ class DataAnalyzeAction : AnAction() {
                 resClasses.add(resMap)
             }
 
-            val resultJson = Gson().toJson(resClasses.toSet())
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup("Custom Notification Group")
-                .createNotification(
-                    resultJson, NotificationType.INFORMATION
-                ).notify(eventProject)
+            //Result for internal classes of original element
+            val internalClassesJsonData = Gson().toJson(resClasses.toSet())
+
+            val dialog = eventProject?.let {
+                DataAnalyzeForm(
+                    it,
+                    modelJsonData,
+                    internalClassesJsonData,
+                    DataAnalyzeInjectorImpl()
+                )
+            }
+            dialog?.show()
+//            NotificationGroupManager.getInstance()
+//                .getNotificationGroup("Custom Notification Group")
+//                .createNotification(
+//                    resultJson, NotificationType.INFORMATION
+//                ).notify(eventProject)
 
         }
     }

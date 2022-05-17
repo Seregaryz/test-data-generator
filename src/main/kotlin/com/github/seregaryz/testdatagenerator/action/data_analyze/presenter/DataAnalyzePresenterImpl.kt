@@ -8,7 +8,11 @@ class DataAnalyzePresenterImpl(
     private val repository: DataAnalyzeRepository
 ): DataAnalyzePresenter {
 
-    override fun sendParsedData(jsonData: String, method: String) {
-        repository.sendParsedData(jsonData, method)
+    override fun sendParsedData(modelJsonData: String?, internalClassesJsonData: String?, method: String) {
+        repository.sendParsedData(modelJsonData, internalClassesJsonData, method)
+            .subscribe(
+                { endpoint -> view.success(endpoint) },
+                { error -> view.error(error) }
+            )
     }
 }

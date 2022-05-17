@@ -1,4 +1,4 @@
-package org.example.data_generator.actions.icons
+package com.github.seregaryz.testdatagenerator.icons
 
 import com.intellij.openapi.util.IconLoader
 
