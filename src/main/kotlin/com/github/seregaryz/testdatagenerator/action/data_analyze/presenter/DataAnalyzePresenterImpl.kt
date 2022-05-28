@@ -6,13 +6,32 @@ import com.github.seregaryz.testdatagenerator.action.data_analyze.view.DataAnaly
 class DataAnalyzePresenterImpl(
     private val view: DataAnalyzeView,
     private val repository: DataAnalyzeRepository
-): DataAnalyzePresenter {
+) : DataAnalyzePresenter {
 
-    override fun sendParsedData(modelJsonData: String?, internalClassesJsonData: String?, method: String) {
-        repository.sendParsedData(modelJsonData, internalClassesJsonData, method)
-            .subscribe(
-                { endpoint -> view.success(endpoint) },
-                { error -> view.error(error) }
+    override fun sendParsedData(
+        modelJsonData: String?,
+        internalClassesJsonData: String?,
+        method: String,
+        language: String,
+        isStatic: Boolean,
+        isRepresentative: Boolean,
+        rootElementName: String?
+    ) {
+        repository.sendParsedData(
+            modelJsonData,
+            internalClassesJsonData,
+            method,
+            language,
+            isStatic,
+            isRepresentative,
+            rootElementName
+        ).subscribe(
+                { endpoint ->
+                    view.success(endpoint)
+                },
+                { error ->
+                    view.error(error)
+                }
             )
     }
 }

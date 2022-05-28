@@ -4,8 +4,12 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class MockServerRequestBody(
-    val userId: Int? = 1,
-    val modelJsonData: String?,
-    val internalClassesJsonData: String?,
-    val endpoint: String?
+    val userId: String?,
+    val rootModel: String?,
+    val additionalModels: String?,
+    val endpoint: String?,
+    val locale: String?,
+    val nameOfRootModel: String?,
+    val isStatic: Boolean?,
+    val isRepresentative: Boolean?
 )

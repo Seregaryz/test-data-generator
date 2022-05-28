@@ -6,14 +6,26 @@ import com.github.seregaryz.testdatagenerator.action.data_analyze.presenter.Data
 import com.github.seregaryz.testdatagenerator.action.data_analyze.repository.DataAnalyzeRepository
 import com.github.seregaryz.testdatagenerator.action.data_analyze.repository.DataAnalyzeRepositoryImpl
 import com.github.seregaryz.testdatagenerator.action.data_analyze.view.DataAnalyzeView
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import retrofit2.converter.gson.GsonConverterFactory
 
-class DataAnalyzeInjectorImpl: DataAnalyzeInjector {
+class DataAnalyzeInjectorImpl : DataAnalyzeInjector {
+
+    private val okHttpClient: OkHttpClient =
+        with(OkHttpClient.Builder()) {
+            val httpLogger = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            }
+            addNetworkInterceptor(httpLogger)
+            build()
+        }
 
     override val api: DataAnalyzeApi by lazy {
         Retrofit.Builder()
+            .client(okHttpClient)
             .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
             .addConverterFactory(GsonConverterFactory.create())
             .baseUrl("http://localhost:8080/")

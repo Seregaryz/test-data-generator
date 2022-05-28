@@ -4,9 +4,11 @@ import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.LIST
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.MAP_TYPES
 import com.github.seregaryz.testdatagenerator.action.data_analyze.Constants.PRIMITIVES
 import com.github.seregaryz.testdatagenerator.action.data_analyze.injector.DataAnalyzeInjectorImpl
-import com.github.seregaryz.testdatagenerator.action.data_analyze.view.DataAnalyzeForm
+import com.github.seregaryz.testdatagenerator.action.data_analyze.model.FieldType
 import com.github.seregaryz.testdatagenerator.action.data_analyze.model.FileParser
+import com.github.seregaryz.testdatagenerator.action.data_analyze.view.DataAnalyzeForm
 import com.google.gson.Gson
+import com.intellij.internal.statistic.DeviceIdManager
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
@@ -32,24 +34,31 @@ class DataAnalyzeAction : AnAction() {
 
             val resultMap =
                 getInfo(rootElementName, selectedElement, 1, null, hashMapOf())
-            val modelMap = hashMapOf<String?, String?>()
-            resultMap.keys.forEach {
-                resultMap[it]?.right = proceedType(resultMap[it]?.right)
-                modelMap[it] = resultMap[it]?.right
-            }
-
-            //Result for original selected element
-            val modelJsonData = Gson().toJson(modelMap)
 
             val innerClasses = defineTypes(resultMap, eventProject, mutableListOf())
-            val resClasses = mutableListOf<HashMap<String?, String?>>()
+            val resClasses = mutableListOf<HashMap<String?, HashMap<String?, FieldType?>>>()
+
             innerClasses.forEach {
-                val resMap = hashMapOf<String?, String?>()
-                it.keys.forEach { key ->
-                    resMap[key] = proceedType(it[key]?.right)
+                val resMap = hashMapOf<String?, HashMap<String?, FieldType?>>()
+                it.keys.forEach { classKey ->
+                    val fieldMap = hashMapOf<String?, FieldType?>()
+                    it[classKey]?.keys?.forEach { fieldKey ->
+                        fieldMap[fieldKey] = FieldType(
+                            proceedType(it[classKey]?.get(fieldKey)?.right?.type),
+                            it[classKey]?.get(fieldKey)?.right?.isPrimitive
+                        )
+                    }
+                    resMap[classKey] = fieldMap
                 }
                 resClasses.add(resMap)
             }
+            val modelMap = hashMapOf<String?, FieldType?>()
+            resultMap.keys.forEach {
+                resultMap[it]?.right?.type = proceedType(resultMap[it]?.right?.type)
+                modelMap[it] = resultMap[it]?.right
+            }
+            //Result for original selected element
+            val modelJsonData = Gson().toJson(modelMap)
 
             //Result for internal classes of original element
             val internalClassesJsonData = Gson().toJson(resClasses.toSet())
@@ -59,6 +68,7 @@ class DataAnalyzeAction : AnAction() {
                     it,
                     modelJsonData,
                     internalClassesJsonData,
+                    rootElementName,
                     DataAnalyzeInjectorImpl()
                 )
             }
@@ -77,8 +87,8 @@ class DataAnalyzeAction : AnAction() {
         psiElement: PsiElement,
         epoch: Int,
         parent: PsiElement?,
-        resultMap: HashMap<String?, MutablePair<MutableList<String?>, String?>>
-    ): HashMap<String?, MutablePair<MutableList<String?>, String?>> {
+        resultMap: HashMap<String?, MutablePair<MutableList<String?>, FieldType?>>
+    ): HashMap<String?, MutablePair<MutableList<String?>, FieldType?>> {
         //name of current element
         val elementName = psiElement.namedUnwrappedElement?.name
         // part of type of current element
@@ -99,7 +109,7 @@ class DataAnalyzeAction : AnAction() {
                 val splitType = mPackage?.split(":")
                 resultMap[elementName] = MutablePair(
                     mutableListOf(elementTypeInfo),
-                    if (splitType != null && splitType.size > 1) splitType[1] else null
+                    if (splitType != null && splitType.size > 1) FieldType(splitType[1]) else null
                 )
 
             } else if (resultMap.containsKey(elementName)) {
@@ -149,17 +159,20 @@ class DataAnalyzeAction : AnAction() {
     }
 
     private fun defineTypes(
-        sourceMap: HashMap<String?, MutablePair<MutableList<String?>, String?>>,
+        sourceMap: HashMap<String?, MutablePair<MutableList<String?>, FieldType?>>,
         eventProject: Project?,
-        result: MutableList<HashMap<String?, MutablePair<MutableList<String?>, String?>>>
-    ): List<HashMap<String?, MutablePair<MutableList<String?>, String?>>> {
+        result: MutableList<HashMap<String?, HashMap<String?, MutablePair<MutableList<String?>, FieldType?>>>>
+    ): List<HashMap<String?, HashMap<String?, MutablePair<MutableList<String?>, FieldType?>>>> {
         sourceMap.keys.forEach { key ->
             sourceMap[key]?.left?.forEach {
                 if (!PRIMITIVES.contains(it) && !LISTS_TYPES.contains(it) && !MAP_TYPES.contains(it)) {
+                    sourceMap[key]?.right?.isPrimitive = false
                     findFieldClass(it, eventProject)?.let { element ->
-                        val map = getInfo(it, element, 1, null, hashMapOf())
-                        result.add(map)
-                        defineTypes(map, eventProject, result)
+                        val innerMap = getInfo(it, element, 1, null, hashMapOf())
+                        val resultMap = hashMapOf<String?, HashMap<String?, MutablePair<MutableList<String?>, FieldType?>>>()
+                        resultMap[element.namedUnwrappedElement?.name] = innerMap
+                        result.add(resultMap)
+                        defineTypes(innerMap, eventProject, result)
                     }
                 }
             }
