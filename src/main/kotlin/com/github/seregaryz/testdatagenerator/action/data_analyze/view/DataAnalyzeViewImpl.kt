@@ -1,23 +1,27 @@
 package com.github.seregaryz.testdatagenerator.action.data_analyze.view
 
-import com.github.seregaryz.testdatagenerator.action.data_analyze.injector.DataAnalyzeInjector
+import com.github.seregaryz.testdatagenerator.action.injector.Injector
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.psi.PsiElement
+import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.layout.panel
 import java.awt.Dimension
-import javax.swing.JComponent
-import javax.swing.JTextField
+import java.text.NumberFormat
+import javax.swing.*
+import javax.swing.text.NumberFormatter
 
-class DataAnalyzeForm(
+
+class DataAnalyzeViewImpl(
     private val project: Project,
-    private val modelJsonData: String?,
-    private val internalClassesJsonData: String?,
-    private val rootElementName: String?,
-    private val injector: DataAnalyzeInjector
+    private val selectedElement: PsiElement,
+    private val injector: Injector
 ) : DialogWrapper(project), DataAnalyzeView {
+
+    private var isListSelected = false
 
     private var endpointTextField: JTextField? = JTextField().apply {
         name = "endpointTextField"
@@ -34,6 +38,17 @@ class DataAnalyzeForm(
     private var representativenessCombo: ComboBox<String>? = ComboBox<String>().apply {
         name = "representativenessComboBox"
     }
+
+    private var listLabel: JLabel = JLabel("List size").apply {
+        name = "list label"
+    }
+
+    private var listCountTextField: JTextField? = JTextField().apply {
+        name = "list size"
+    }
+
+    private var singleElementRadioButton: JBRadioButton = JBRadioButton("Single element", true)
+    private var listRadioButton: JBRadioButton = JBRadioButton("List", false)
 
     private val dataAnalyzePresenter by lazy {
         injector.dataAnalyzePresenter(this)
@@ -56,30 +71,63 @@ class DataAnalyzeForm(
         row("Representativeness") {
             representativenessCombo?.let { it(grow) }
         }
+        row {
+            singleElementRadioButton()
+            listRadioButton()
+        }
+        row {
+            listLabel()
+            listCountTextField?.let {
+                it()
+            }
+        }
     }.apply {
-        minimumSize = Dimension(400, 150)
-        maximumSize = Dimension(400, 150)
+        listLabel.isVisible = false
+        listCountTextField?.isVisible = false
+        minimumSize = Dimension(400, 250)
+        maximumSize = Dimension(400, 250)
         localeCombo?.addItem("Russian")
         localeCombo?.addItem("English")
         variabilityCombo?.addItem("Static")
         variabilityCombo?.addItem("Dynamic")
         representativenessCombo?.addItem("Representative")
         representativenessCombo?.addItem("Not representative")
-
+        val group = ButtonGroup()
+        group.add(singleElementRadioButton)
+        group.add(listRadioButton)
+        singleElementRadioButton.addItemListener {
+            listLabel.isVisible = false
+            listCountTextField?.isVisible = false
+            isListSelected = false
+        }
+        listRadioButton.addItemListener {
+            listLabel.isVisible = true
+            listCountTextField?.isVisible = true
+            isListSelected = true
+        }
     }
 
     override fun doOKAction() {
         val endpoint = endpointTextField?.text
-        if (endpoint?.isNotEmpty() == true) {
-
-            dataAnalyzePresenter.sendParsedData(
-                modelJsonData = modelJsonData,
-                internalClassesJsonData = internalClassesJsonData,
+        val isCountValid = if (isListSelected) {
+            try {
+                Integer.parseInt(listCountTextField?.text)
+                true
+            } catch(e: NumberFormatException) {
+                false
+            }
+        } else true
+        if (endpoint?.isNotEmpty() == true && isCountValid) {
+            val count = if (isListSelected) Integer.parseInt(listCountTextField?.text) else 0
+            dataAnalyzePresenter.analyzeModelData(
+                project = project,
+                selectedElement = selectedElement,
                 method = endpoint,
                 language = localeCombo?.selectedItem as String,
                 isStatic = (variabilityCombo?.selectedItem as String) == "Static",
                 isRepresentative = (representativenessCombo?.selectedItem as String) == "Representative",
-                rootElementName = rootElementName
+                isList = isListSelected,
+                elementsCount = count
             )
         } else error(Error("Please, fill endpoint field"))
     }

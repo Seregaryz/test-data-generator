@@ -10,6 +10,8 @@ interface DataAnalyzeRepository {
         language: String,
         isStatic: Boolean,
         isRepresentative: Boolean,
-        rootElementName: String?
+        rootElementName: String?,
+        isList: Boolean?,
+        elementsCount: Int?
     ): Single<String?>
 }

@@ -1,6 +1,6 @@
 package com.github.seregaryz.testdatagenerator.action.data_analyze.repository
 
-import com.github.seregaryz.testdatagenerator.action.data_analyze.api.DataAnalyzeApi
+import com.github.seregaryz.testdatagenerator.api.DataAnalyzeApi
 import com.github.seregaryz.testdatagenerator.action.data_analyze.model.MockServerRequestBody
 import com.intellij.internal.statistic.DeviceIdManager
 import hu.akarnokd.rxjava2.swing.SwingSchedulers
@@ -18,7 +18,9 @@ class DataAnalyzeRepositoryImpl(
         language: String,
         isStatic: Boolean,
         isRepresentative: Boolean,
-        rootElementName: String?
+        rootElementName: String?,
+        isList: Boolean?,
+        elementsCount: Int?
     ): Single<String?> =
         api.addNewEndpoint(
             MockServerRequestBody(
@@ -29,7 +31,9 @@ class DataAnalyzeRepositoryImpl(
                 locale = language,
                 isStatic = isStatic,
                 nameOfRootModel = rootElementName,
-                isRepresentative = isRepresentative
+                isRepresentative = isRepresentative,
+                isList = isList,
+                elementsCount = elementsCount
             )
         )
             .subscribeOn(Schedulers.io())

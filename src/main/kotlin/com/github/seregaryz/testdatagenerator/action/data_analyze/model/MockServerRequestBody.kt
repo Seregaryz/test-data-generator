@@ -11,5 +11,7 @@ data class MockServerRequestBody(
     val locale: String?,
     val nameOfRootModel: String?,
     val isStatic: Boolean?,
-    val isRepresentative: Boolean?
+    val isRepresentative: Boolean?,
+    val isList: Boolean?,
+    val elementsCount: Int?
 )
